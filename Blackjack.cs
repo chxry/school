@@ -8,127 +8,177 @@ static class Program {
 		Application.Run(new GameForm());
 	}
 
-	class GameForm: Form {
-		static Pack pack;
-		static Player[] players = new Player[3];
+	public class GameForm: Form {
+		public Pack pack;
+		public Player[] players = new Player[3];
+
+		ListBox log;
 	
 		public GameForm() {
-			BackColor = SystemColors.Window;
-			ClientSize = new Size(640, 720);
+			// BackColor = SystemColors.Window;
+			ClientSize = new Size(1080, 720);
 			Text = "blackjack";
-
-			pack = new Pack();
-			pack.Shuffle();
-
-			for (int i = 0; i < players.Length; i ++) {
-				players[i] = new Player(i, this);
-				players[i].AddCard(pack.DrawCard());
-			}
-			players[0].StartTurn();
+			Reset();
 		}
 
-		public class Player {
-			List<CardImage> cards = new List<CardImage>();
-			int pNum;
-			bool stood;
-
-			Form form;
-			Label label;
-			Button hit;
-			Button stand;
-
-			public Player(int n, Form f) {
-				pNum = n;
-				stood = false;
-				form = f;
-
-				Font big = new Font("comic sans ms", 24);
-				label = new Label();
-				label.Location = new Point(16, GetY());
-				label.AutoSize = true;
-				label.Font = big;
-				form.Controls.Add(label);
-
-				hit = new Button();
-				hit.Text = "hit";
-				hit.Location = new Point(16, GetY() + 48);
-				hit.Size = new Size(224, 40);
-				hit.Font = big;
-				hit.Enabled = false;
-				hit.Click += (_, _) => Hit();
-				form.Controls.Add(hit);
-
-				stand = new Button();
-				stand.Text = "stand";
-				stand.Location = new Point(16, GetY() + 96);
-				stand.Size = new Size(224, 40);
-				stand.Font = big;
-				stand.Enabled = false;
-				stand.Click += (_, _) => Stand();
-				form.Controls.Add(stand);
-
-				RefreshLabel();
+		public void Reset() {
+			Controls.Clear();
+			
+			log = new ListBox();
+			log.Location = new Point(480, 16);
+			log.Size = new Size(440, 480);
+			log.Font = new Font("comic sans ms", 16);
+			Controls.Add(log);
+			
+			pack = new Pack();
+			pack.Shuffle();
+			
+			for (int i = 0; i < players.Length; i++) {
+				players[i] = new Player(i, this);
+				players[i].AddCard(pack.DrawCard());
+				players[i].AddCard(pack.DrawCard());
 			}
+			players[1].StartTurn();
+		}
 
-			public void AddCard(Card c) {
-				CardImage p = new CardImage(c);
-				p.Location = new Point(256 + cards.Count * 32, GetY());
-				cards.Add(p);
-				form.Controls.Add(p);
-				p.BringToFront();
-				RefreshLabel();
+		public void Log(string msg) {
+			log.Items.Add(msg);
+		}
+	}
+
+	public class Player {
+		List<CardImage> cards = new List<CardImage>();
+		int pNum;
+		bool playing;
+
+		GameForm game;
+		Label label;
+		Button hit;
+		Button stand;
+
+		public Player(int n, GameForm g) {
+			pNum = n;
+			playing = true;
+			game = g;
+
+			Font big = new Font("comic sans ms", 20);
+			label = new Label();
+			label.Location = new Point(16, GetY());
+			label.AutoSize = true;
+			label.Font = big;
+			game.Controls.Add(label);
+
+			hit = new Button();
+			hit.Text = "hit";
+			hit.Location = new Point(16, GetY() + 48);
+			hit.Size = new Size(224, 40);
+			hit.Font = big;
+			hit.Enabled = false;
+			hit.Click += (_, _) => Hit();
+			game.Controls.Add(hit);
+
+			stand = new Button();
+			stand.Text = "stand";
+			stand.Location = new Point(16, GetY() + 96);
+			stand.Size = new Size(224, 40);
+			stand.Font = big;
+			stand.Enabled = false;
+			stand.Click += (_, _) => Stand();
+			game.Controls.Add(stand);
+
+			Update();
+		}
+
+		public void AddCard(Card c) {
+			CardImage p = new CardImage(c);
+			p.Location = new Point(256 + cards.Count * 32, GetY());
+			cards.Add(p);
+			game.Controls.Add(p);
+			p.BringToFront();
+			Update();
+		}
+
+		public int GetScore() {
+			int score = 0;
+			for (int i = 0; i < cards.Count; i++) {
+				int rank = cards[i].GetCard().GetRank();
+				if (rank >= 2 && rank <= 10) {
+					score += rank;
+				} else if (rank == 1 && score + 11 > 21) {
+					score += 1;
+				} else {
+					score += 11;
+				}
 			}
+			return score;
+		}
 
-			public int GetScore() {
-				int score = 0;
-				for (int i = 0; i < cards.Count; i++) {
-					int rank = cards[i].GetCard().GetRank();
-					if (rank >= 2 && rank <= 10) {
-						score += rank;
-					} else if (rank == 1 && score + 11 > 21) {
-						score += 1;
-					} else {
-						score += 11;
+		public void StartTurn() {
+			if (!playing) {
+				EndTurn();
+				return;
+			}
+			hit.Enabled = pNum == 0 ? GetScore() <= 16 : true;
+			stand.Enabled = pNum == 0 ? GetScore() > 16 : true;
+			Update();
+		}
+
+		public void EndTurn() {
+			hit.Enabled = false;
+			stand.Enabled = false;
+			Update();
+			if (pNum == 0) {
+				if (GetScore() <= 16) {
+					StartTurn();
+				} else {
+					if (GetScore() > 21) {
+						MessageBox.Show("dealer lost");
+						game.Reset();
+						return;
 					}
+					for (int i = 0; i < game.players.Length; i++) {
+						if (game.players[i].GetScore() > GetScore() && game.players[i].GetScore() <= 21) {
+							MessageBox.Show("dealer lost");
+							game.Reset();
+							return;
+						}
+					}
+					MessageBox.Show("dealer won");
+					game.Reset();
 				}
-				return score;
+			} else {
+				game.players[(pNum + 1) % game.players.Length].StartTurn();
 			}
+		}
 
-			public void StartTurn() {
-				if (stood) {
-					EndTurn();
-					return;
-				}
-				hit.Enabled = true;
-				stand.Enabled = true;
-				RefreshLabel();
-			}
+		void Hit() {
+			Card card = game.pack.DrawCard();
+			game.Log(GetName() + " drew " + card.GetName());
+			AddCard(card);
+			EndTurn();
+		}
 
-			public void EndTurn() {
-				hit.Enabled = false;
-				stand.Enabled = false;
-				RefreshLabel();
-				// check game state here?
-				players[(pNum + 1) % players.Length].StartTurn();
-			}
+		void Stand() {
+			game.Log(GetName() + " stood");
+			playing = false;
+			EndTurn();
+		}
 
-			void Hit() {
-				AddCard(pack.DrawCard());
-				EndTurn();
+		void Update() {
+			int score = GetScore();
+			if (playing && score > 21) {
+				game.Log(GetName() + " bust");
+				playing = false;
 			}
+			label.Text = (playing ? (hit.Enabled ? "> " : "") : "X ") + GetName() + ": " + score;
+		}
 
-			void Stand() {
-				stood = true;
-				EndTurn();
-			}
+		string GetName() {
+			return pNum == 0 ? "dealer" : ("player " + pNum);
+		}
 
-			void RefreshLabel() {
-				label.Text = (stood ? "X " : (hit.Enabled ? "> " : "")) + "player " + (pNum + 1) + ": " + GetScore();
-			}
-
-			int GetY() {
-				return 16 + pNum * 240;
-			}
+		int GetY() {
+			return 16 + pNum * 240;
 		}
 	}
 
@@ -193,7 +243,7 @@ static class Program {
 			};
 		}
 
-		public string GetCardName() {
+		public string GetName() {
 			return GetRankName() + " of " + GetSuitName();
 		}
 	}
@@ -204,7 +254,7 @@ static class Program {
 
 		public Pack() {
 			for (int s = 1; s <= 4; s++) {
-				for(int r = 1; r <= 13; r++) {
+				for (int r = 1; r <= 13; r++) {
 					cards.Add(new Card(r, s));
 				}
 			}
