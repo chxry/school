@@ -44,7 +44,7 @@ static class Program {
 			for (int i = 0; i < patterns.Length; i++) {
 				int[] pat = patterns[i];
 				if (buttons[pat[0]].Text != "" && buttons[pat[0]].Text == buttons[pat[1]].Text && buttons[pat[1]].Text == buttons[pat[2]].Text) {
-					new WinDialog(buttons[pat[0]].Text + "'s win", buttons[pat[0]].ForeColor).ShowDialog();
+					new Dialog(buttons[pat[0]].Text + "'s win", buttons[pat[0]].ForeColor).ShowDialog();
 					Reset();
 					return;
 				}
@@ -54,7 +54,7 @@ static class Program {
 					return;
 				}
 			}
-			new WinDialog("draw", Color.Black).ShowDialog();
+			new Dialog("draw", Color.Black).ShowDialog();
 			Reset();
 		}
 
@@ -65,12 +65,11 @@ static class Program {
 		}
 	}
 
-	// messagebox doesnt let me use cool fonts :(
-	class WinDialog: Form {
-		public WinDialog(string msg, Color color) {
+	class Dialog: Form {
+		public Dialog(string msg, Color color) {
 			BackColor = SystemColors.Window;
 			ClientSize = new Size(SIZE * 3, SIZE);
-			
+
 			Label label = new Label();
 			label.Size = ClientSize;
 			label.Text = msg;

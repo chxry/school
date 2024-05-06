@@ -10,7 +10,7 @@ static class Program {
 
 	public class GameForm: Form {
 		public Pack pack;
-		public Player[] players = new Player[3];
+		public Player[] players = new Player[5];
 
 		ListBox log;
 	
@@ -37,6 +37,7 @@ static class Program {
 				players[i] = new Player(i, this);
 				players[i].AddCard(pack.DrawCard());
 				players[i].AddCard(pack.DrawCard());
+				players[i].Update();
 			}
 			players[1].StartTurn();
 		}
@@ -49,7 +50,6 @@ static class Program {
 	public class Player {
 		List<CardImage> cards = new List<CardImage>();
 		int pNum;
-		bool playing;
 
 		GameForm game;
 		Label label;
@@ -58,7 +58,6 @@ static class Program {
 
 		public Player(int n, GameForm g) {
 			pNum = n;
-			playing = true;
 			game = g;
 
 			Font big = new Font("comic sans ms", 20);
@@ -95,7 +94,6 @@ static class Program {
 			cards.Add(p);
 			game.Controls.Add(p);
 			p.BringToFront();
-			Update();
 		}
 
 		public int GetScore() {
@@ -114,10 +112,6 @@ static class Program {
 		}
 
 		public void StartTurn() {
-			if (!playing) {
-				EndTurn();
-				return;
-			}
 			hit.Enabled = pNum == 0 ? GetScore() <= 16 : true;
 			stand.Enabled = pNum == 0 ? GetScore() > 16 : true;
 			Update();
@@ -126,52 +120,48 @@ static class Program {
 		public void EndTurn() {
 			hit.Enabled = false;
 			stand.Enabled = false;
-			Update();
 			if (pNum == 0) {
-				if (GetScore() <= 16) {
-					StartTurn();
-				} else {
-					if (GetScore() > 21) {
+				if (GetScore() > 21) {
+					MessageBox.Show("dealer lost");
+					game.Reset();
+					return;
+				}
+				for (int i = 0; i < game.players.Length; i++) {
+					if (game.players[i].GetScore() > GetScore() && game.players[i].GetScore() <= 21) {
 						MessageBox.Show("dealer lost");
 						game.Reset();
 						return;
 					}
-					for (int i = 0; i < game.players.Length; i++) {
-						if (game.players[i].GetScore() > GetScore() && game.players[i].GetScore() <= 21) {
-							MessageBox.Show("dealer lost");
-							game.Reset();
-							return;
-						}
-					}
-					MessageBox.Show("dealer won");
-					game.Reset();
 				}
+				MessageBox.Show("dealer won");
+				game.Reset();
 			} else {
-				game.players[(pNum + 1) % game.players.Length].StartTurn();
+				game.players[(pNum + 1) % game.players.Length].StartTurn(); // this isnt always right
 			}
+		}
+
+		public void Update() {
+			int score = GetScore();
+			if (score > 21) {
+				game.Log(GetName() + " bust");
+				EndTurn();
+			}
+			label.Text = (hit.Enabled ? "> " : "") + GetName() + ": " + score;
 		}
 
 		void Hit() {
 			Card card = game.pack.DrawCard();
 			game.Log(GetName() + " drew " + card.GetName());
 			AddCard(card);
-			EndTurn();
+			StartTurn();
 		}
 
 		void Stand() {
 			game.Log(GetName() + " stood");
-			playing = false;
 			EndTurn();
+			Update();
 		}
 
-		void Update() {
-			int score = GetScore();
-			if (playing && score > 21) {
-				game.Log(GetName() + " bust");
-				playing = false;
-			}
-			label.Text = (playing ? (hit.Enabled ? "> " : "") : "X ") + GetName() + ": " + score;
-		}
 
 		string GetName() {
 			return pNum == 0 ? "dealer" : ("player " + pNum);
